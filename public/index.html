@@ -175,9 +175,6 @@
     document.getElementById('add-row').addEventListener('click', rowTemplate);
     rowTemplate();
 
-    // Xac nhan dien tu noi bo: ve chu ky tay tren canvas cho tung vai tro ky
-    // (khong phai chu ky so PKI/CA). Danh sach vai tro phai khop voi SIGNER_ROLES
-    // o backend (src/models/phieuNhapKho.ts).
     const SIGNERS = [
       { role: 'nguoi_lap_phieu', label: 'Người lập phiếu' },
       { role: 'nguoi_giao_hang', label: 'Người giao hàng' },

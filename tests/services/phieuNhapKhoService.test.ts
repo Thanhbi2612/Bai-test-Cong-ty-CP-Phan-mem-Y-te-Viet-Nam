@@ -40,8 +40,12 @@ describe('PhieuNhapKhoService.create', () => {
     client.query
       .mockResolvedValueOnce(undefined) // BEGIN
       .mockResolvedValueOnce({ rows: [header] }) // insert header
-      .mockResolvedValueOnce({ rows: [{ id: 10, stt: 1, thanh_tien: 150000 }] }) // insert line 1
-      .mockResolvedValueOnce({ rows: [{ id: 11, stt: 2, thanh_tien: 80000 }] }) // insert line 2
+      .mockResolvedValueOnce({
+        rows: [
+          { id: 10, stt: 1, thanh_tien: 150000 },
+          { id: 11, stt: 2, thanh_tien: 80000 },
+        ],
+      }) // insert chi_tiet (bulk, 1 cau lenh cho ca 2 dong)
       .mockResolvedValueOnce(undefined); // COMMIT
 
     const pool = createMockPool(client);
@@ -50,7 +54,7 @@ describe('PhieuNhapKhoService.create', () => {
     const result = await service.create(makeInput());
 
     expect(client.query).toHaveBeenNthCalledWith(1, 'BEGIN');
-    expect(client.query).toHaveBeenNthCalledWith(5, 'COMMIT');
+    expect(client.query).toHaveBeenNthCalledWith(4, 'COMMIT');
     expect(result.id).toBe(1);
     expect(result.chi_tiet).toHaveLength(2);
     expect(client.release).toHaveBeenCalled();
@@ -63,8 +67,12 @@ describe('PhieuNhapKhoService.create', () => {
     client.query
       .mockResolvedValueOnce(undefined) // BEGIN
       .mockResolvedValueOnce({ rows: [header] }) // insert header
-      .mockResolvedValueOnce({ rows: [{ id: 10, stt: 1 }] }) // insert line 1
-      .mockResolvedValueOnce({ rows: [{ id: 11, stt: 2 }] }) // insert line 2
+      .mockResolvedValueOnce({
+        rows: [
+          { id: 10, stt: 1 },
+          { id: 11, stt: 2 },
+        ],
+      }) // insert chi_tiet (bulk)
       .mockResolvedValueOnce(undefined); // COMMIT
 
     const pool = createMockPool(client);
@@ -124,11 +132,10 @@ describe('PhieuNhapKhoService.create', () => {
     client.query
       .mockResolvedValueOnce(undefined) // BEGIN
       .mockResolvedValueOnce({ rows: [{ id: 1, so_phieu: 'PNK001' }] }) // insert header ok
-      .mockResolvedValueOnce({ rows: [{ id: 10, stt: 1 }] }) // insert line 1 ok
       .mockRejectedValueOnce({
         code: '23505',
         constraint: 'phieu_nhap_kho_chi_tiet_phieu_nhap_kho_id_stt_key',
-      }) // insert line 2 fails: trung stt
+      }) // insert chi_tiet fails: trung stt
       .mockResolvedValueOnce(undefined); // ROLLBACK
 
     const pool = createMockPool(client);
@@ -180,7 +187,7 @@ describe('PhieuNhapKhoService.findById', () => {
     const pool = createMockPool(client);
     pool.query
       .mockResolvedValueOnce({ rows: [{ id: 1, so_phieu: 'PNK001' }] })
-      .mockResolvedValueOnce({ rows: [{ id: 10, stt: 1 }] });
+      .mockResolvedValueOnce({ rows: [{ id: 10, stt: 1, phieu_nhap_kho_id: 1 }] });
 
     const service = new PhieuNhapKhoService(pool);
     const result = await service.findById(1);
@@ -202,17 +209,17 @@ describe('PhieuNhapKhoService.findAll', () => {
     expect(pool.query).toHaveBeenCalledTimes(1); // khong query chi tiet vi khong co header nao
   });
 
-  it('tra ve danh sach phieu kem chi tiet tuong ung', async () => {
+  it('tra ve danh sach phieu kem chi tiet tuong ung, gom trong 1 truy van chi tiet duy nhat', async () => {
     const client = createMockClient();
     const pool = createMockPool(client);
     pool.query
       .mockResolvedValueOnce({ rows: [{ id: 1 }, { id: 2 }] }) // headers
-      .mockResolvedValueOnce({ rows: [{ id: 10, stt: 1 }] }) // chi tiet phieu 1
-      .mockResolvedValueOnce({ rows: [] }); // chi tiet phieu 2 (rong)
+      .mockResolvedValueOnce({ rows: [{ id: 10, stt: 1, phieu_nhap_kho_id: 1 }] }); // chi tiet ca 2 phieu
 
     const service = new PhieuNhapKhoService(pool);
     const result = await service.findAll();
 
+    expect(pool.query).toHaveBeenCalledTimes(2);
     expect(result).toHaveLength(2);
     expect(result[0].chi_tiet).toHaveLength(1);
     expect(result[1].chi_tiet).toHaveLength(0);
