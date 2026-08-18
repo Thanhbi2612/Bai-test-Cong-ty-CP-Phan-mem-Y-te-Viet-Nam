@@ -56,6 +56,39 @@ describe('PhieuNhapKhoService.create', () => {
     expect(client.release).toHaveBeenCalled();
   });
 
+  it('gan thoi diem ky (ky_luc) khi co chu_ky, va de null khi khong ky', async () => {
+    const client = createMockClient();
+    const header = { id: 1, so_phieu: 'PNK001', tong_thanh_tien: 230000 };
+
+    client.query
+      .mockResolvedValueOnce(undefined) // BEGIN
+      .mockResolvedValueOnce({ rows: [header] }) // insert header
+      .mockResolvedValueOnce({ rows: [{ id: 10, stt: 1 }] }) // insert line 1
+      .mockResolvedValueOnce({ rows: [{ id: 11, stt: 2 }] }) // insert line 2
+      .mockResolvedValueOnce(undefined); // COMMIT
+
+    const pool = createMockPool(client);
+    const service = new PhieuNhapKhoService(pool);
+
+    const input: PhieuNhapKhoInput = {
+      ...makeInput(),
+      thu_kho: 'Tran Thi B',
+      thu_kho_chu_ky: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
+    };
+    await service.create(input);
+
+    const [insertSql, insertValues] = client.query.mock.calls[1];
+    const columns = insertSql.match(/INSERT INTO phieu_nhap_kho \(([^)]+)\)/)[1].split(',').map((c: string) => c.trim());
+
+    const thuKhoChuKyIdx = columns.indexOf('thu_kho_chu_ky');
+    const thuKhoKyLucIdx = columns.indexOf('thu_kho_ky_luc');
+    const nguoiLapPhieuKyLucIdx = columns.indexOf('nguoi_lap_phieu_ky_luc');
+
+    expect(insertValues[thuKhoChuKyIdx]).toBe(input.thu_kho_chu_ky);
+    expect(insertValues[thuKhoKyLucIdx]).toEqual(expect.any(String));
+    expect(insertValues[nguoiLapPhieuKyLucIdx]).toBeNull();
+  });
+
   it('rollback va nem SoPhieuDaTonTaiError khi so_phieu bi trung (unique violation)', async () => {
     const client = createMockClient();
     client.query

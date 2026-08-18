@@ -14,7 +14,27 @@ export interface ChiTiet extends ChiTietInput {
   thanh_tien: number;
 }
 
-export interface PhieuNhapKhoInput {
+// 4 vai tro ky xac nhan dien tu noi bo tren phieu (khong phai chu ky so PKI/CA).
+export const SIGNER_ROLES = ['nguoi_lap_phieu', 'nguoi_giao_hang', 'thu_kho', 'ke_toan_truong'] as const;
+export type SignerRole = (typeof SIGNER_ROLES)[number];
+
+export interface ChuKyInput {
+  // Anh chu ky ve tren canvas, dang data URI PNG base64 (data:image/png;base64,...)
+  nguoi_lap_phieu_chu_ky?: string;
+  nguoi_giao_hang_chu_ky?: string;
+  thu_kho_chu_ky?: string;
+  ke_toan_truong_chu_ky?: string;
+}
+
+export interface ChuKy {
+  // Thoi diem ky, server tu gan (NOW()) khi nhan duoc chu_ky tuong ung, client khong duoc gui len.
+  nguoi_lap_phieu_ky_luc?: string;
+  nguoi_giao_hang_ky_luc?: string;
+  thu_kho_ky_luc?: string;
+  ke_toan_truong_ky_luc?: string;
+}
+
+export interface PhieuNhapKhoInput extends ChuKyInput {
   so_phieu: string;
   ngay_nhap: string; // ISO date (YYYY-MM-DD)
   don_vi?: string;
@@ -37,7 +57,7 @@ export interface PhieuNhapKhoInput {
   chi_tiet: ChiTietInput[];
 }
 
-export interface PhieuNhapKho extends Omit<PhieuNhapKhoInput, 'chi_tiet'> {
+export interface PhieuNhapKho extends Omit<PhieuNhapKhoInput, 'chi_tiet'>, ChuKy {
   id: number;
   tong_thanh_tien: number;
   created_at: string;

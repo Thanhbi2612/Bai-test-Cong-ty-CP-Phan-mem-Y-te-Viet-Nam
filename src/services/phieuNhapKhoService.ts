@@ -1,6 +1,18 @@
 import { Pool } from 'pg';
-import { PhieuNhapKho, PhieuNhapKhoInput } from '../models/phieuNhapKho';
+import { PhieuNhapKho, PhieuNhapKhoInput, SIGNER_ROLES } from '../models/phieuNhapKho';
 import { tinhThanhTien, tinhTongThanhTien } from './phieuNhapKhoCalc';
+
+// Voi moi vai tro ky, neu client gui kem *_chu_ky thi server tu gan thoi diem ky (NOW),
+// client khong duoc tu gui *_ky_luc len.
+function buildChuKyValues(input: PhieuNhapKhoInput): Array<string | null> {
+  const now = new Date();
+  return SIGNER_ROLES.flatMap((role) => {
+    const chuKy = input[`${role}_chu_ky`] ?? null;
+    return [chuKy, chuKy ? now.toISOString() : null];
+  });
+}
+
+const CHU_KY_COLUMNS = SIGNER_ROLES.flatMap((role) => [`${role}_chu_ky`, `${role}_ky_luc`]);
 
 export class SoPhieuDaTonTaiError extends Error {
   constructor(soPhieu: string) {
@@ -37,36 +49,44 @@ export class PhieuNhapKhoService {
 
       const tongThanhTien = tinhTongThanhTien(input.chi_tiet);
 
+      const columns = [
+        'so_phieu', 'ngay_nhap', 'don_vi', 'bo_phan', 'no', 'co', 'nguoi_giao',
+        'theo_loai_chung_tu', 'theo_so_chung_tu', 'theo_ngay_chung_tu', 'theo_don_vi',
+        'nhap_tai_kho', 'dia_diem', 'tong_tien_bang_chu', 'so_chung_tu_goc_kem',
+        'nguoi_lap_phieu', 'nguoi_giao_hang', 'thu_kho', 'ke_toan_truong',
+        ...CHU_KY_COLUMNS,
+        'tong_thanh_tien',
+      ];
+      const values = [
+        input.so_phieu,
+        input.ngay_nhap,
+        input.don_vi ?? null,
+        input.bo_phan ?? null,
+        input.no ?? null,
+        input.co ?? null,
+        input.nguoi_giao,
+        input.theo_loai_chung_tu ?? null,
+        input.theo_so_chung_tu ?? null,
+        input.theo_ngay_chung_tu ?? null,
+        input.theo_don_vi ?? null,
+        input.nhap_tai_kho ?? null,
+        input.dia_diem ?? null,
+        input.tong_tien_bang_chu ?? null,
+        input.so_chung_tu_goc_kem ?? null,
+        input.nguoi_lap_phieu ?? null,
+        input.nguoi_giao_hang ?? null,
+        input.thu_kho ?? null,
+        input.ke_toan_truong ?? null,
+        ...buildChuKyValues(input),
+        tongThanhTien,
+      ];
+      const placeholders = values.map((_, idx) => `$${idx + 1}`).join(',');
+
       const headerResult = await client.query(
-        `INSERT INTO phieu_nhap_kho
-          (so_phieu, ngay_nhap, don_vi, bo_phan, no, co, nguoi_giao,
-           theo_loai_chung_tu, theo_so_chung_tu, theo_ngay_chung_tu, theo_don_vi,
-           nhap_tai_kho, dia_diem, tong_tien_bang_chu, so_chung_tu_goc_kem,
-           nguoi_lap_phieu, nguoi_giao_hang, thu_kho, ke_toan_truong, tong_thanh_tien)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        `INSERT INTO phieu_nhap_kho (${columns.join(', ')})
+         VALUES (${placeholders})
          RETURNING *`,
-        [
-          input.so_phieu,
-          input.ngay_nhap,
-          input.don_vi ?? null,
-          input.bo_phan ?? null,
-          input.no ?? null,
-          input.co ?? null,
-          input.nguoi_giao,
-          input.theo_loai_chung_tu ?? null,
-          input.theo_so_chung_tu ?? null,
-          input.theo_ngay_chung_tu ?? null,
-          input.theo_don_vi ?? null,
-          input.nhap_tai_kho ?? null,
-          input.dia_diem ?? null,
-          input.tong_tien_bang_chu ?? null,
-          input.so_chung_tu_goc_kem ?? null,
-          input.nguoi_lap_phieu ?? null,
-          input.nguoi_giao_hang ?? null,
-          input.thu_kho ?? null,
-          input.ke_toan_truong ?? null,
-          tongThanhTien,
-        ],
+        values,
       );
       const header = headerResult.rows[0];
 
